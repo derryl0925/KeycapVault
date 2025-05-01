@@ -1,0 +1,154 @@
+from pymongo import MongoClient
+from bson.objectid import ObjectId
+from typing import List, Dict, Optional
+import os
+from dotenv import load_dotenv
+import logging
+from datetime import datetime
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# MongoDB connection
+client = None
+db = None
+keycaps_collection = None
+scrapes_collection = None  # New collection for storing scrape results
+
+def init_db(uri: str = None) -> bool:
+    """Initialize MongoDB connection and get the collections."""
+    global client, db, keycaps_collection, scrapes_collection
+    try:
+        if uri is None:
+            uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017')
+        
+        logger.info(f"Connecting to MongoDB at {uri}")
+        client = MongoClient(uri, serverSelectionTimeoutMS=5000)  # 5 second timeout
+        
+        # Test the connection
+        client.admin.command('ping')
+        logger.info("Successfully connected to MongoDB")
+        
+        db = client.keycapvault
+        keycaps_collection = db.keycaps
+        scrapes_collection = db.scrapes  # Initialize scrapes collection
+        
+        # Ensure indexes
+        keycaps_collection.create_index("vendor")
+        keycaps_collection.create_index("name")
+        scrapes_collection.create_index([("scraped_at", -1)])  # Index for latest scrape
+        
+        return True
+    except Exception as e:
+        logger.error(f"Failed to initialize MongoDB connection: {str(e)}")
+        return False
+
+def is_connected() -> bool:
+    """Check if the database connection is active."""
+    try:
+        if client is None:
+            return False
+        client.admin.command('ping')
+        return True
+    except:
+        return False
+
+def ensure_connection():
+    """Ensure database connection is active, attempt to reconnect if not."""
+    if not is_connected():
+        logger.warning("Database connection lost, attempting to reconnect...")
+        return init_db()
+    return True
+
+def store_scrape_results(products: List[Dict]) -> bool:
+    """Store scrape results with timestamp."""
+    if not ensure_connection():
+        raise ConnectionError("Database connection failed")
+    
+    try:
+        # Create a scrape record with timestamp and products
+        scrape_data = {
+            "scraped_at": datetime.utcnow(),
+            "products": products
+        }
+        
+        # Store the scrape results
+        scrapes_collection.insert_one(scrape_data)
+        logger.info(f"Stored scrape results with {len(products)} products")
+        return True
+    except Exception as e:
+        logger.error(f"Error storing scrape results: {str(e)}")
+        raise
+
+def get_latest_scrape() -> List[Dict]:
+    """Get the most recent scrape results."""
+    if not ensure_connection():
+        raise ConnectionError("Database connection failed")
+    
+    try:
+        # Find the most recent scrape
+        latest_scrape = scrapes_collection.find_one(
+            sort=[("scraped_at", -1)]
+        )
+        
+        if latest_scrape:
+            logger.info(f"Retrieved latest scrape from {latest_scrape['scraped_at']}")
+            return latest_scrape["products"]
+        else:
+            logger.info("No previous scrape results found")
+            return []
+    except Exception as e:
+        logger.error(f"Error retrieving latest scrape: {str(e)}")
+        raise
+
+def add_keycap(data: Dict) -> str:
+    """Add a new keycap to the collection."""
+    if not ensure_connection():
+        raise ConnectionError("Database connection failed")
+    
+    try:
+        result = keycaps_collection.insert_one(data)
+        return str(result.inserted_id)
+    except Exception as e:
+        logger.error(f"Error adding keycap: {str(e)}")
+        raise
+
+def get_keycaps(vendor: Optional[str] = None) -> List[Dict]:
+    """Get all keycaps, optionally filtered by vendor."""
+    if not ensure_connection():
+        raise ConnectionError("Database connection failed")
+    
+    try:
+        query = {"vendor": vendor} if vendor else {}
+        return list(keycaps_collection.find(query))
+    except Exception as e:
+        logger.error(f"Error getting keycaps: {str(e)}")
+        raise
+
+def update_keycap(keycap_id: str, updates: Dict) -> bool:
+    """Update a keycap by ID."""
+    if not ensure_connection():
+        raise ConnectionError("Database connection failed")
+    
+    try:
+        result = keycaps_collection.update_one(
+            {"_id": ObjectId(keycap_id)},
+            {"$set": updates}
+        )
+        return result.modified_count > 0
+    except Exception as e:
+        logger.error(f"Error updating keycap: {str(e)}")
+        raise
+
+def delete_keycap(keycap_id: str) -> bool:
+    """Delete a keycap by ID."""
+    if not ensure_connection():
+        raise ConnectionError("Database connection failed")
+    
+    try:
+        result = keycaps_collection.delete_one({"_id": ObjectId(keycap_id)})
+        return result.deleted_count > 0
+    except Exception as e:
+        logger.error(f"Error deleting keycap: {str(e)}")
+        raise

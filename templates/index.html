@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KeycapVault</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>KeycapVault</h1>
+            <nav>
+                <button class="tab-btn active" data-tab="collection">My Collection</button>
+                <button class="tab-btn" data-tab="drops">S-Craft Drops</button>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Collection Section -->
+            <section id="collection" class="tab-content active">
+                <h2>My Collection</h2>
+                <form id="add-keycap-form" class="form">
+                    <input type="text" name="name" placeholder="Keycap Name" required>
+                    <input type="text" name="vendor" placeholder="Vendor" required>
+                    <input type="text" name="artisan" placeholder="Artisan">
+                    <input type="text" name="pokemon" placeholder="Pokémon">
+                    <input type="text" name="color" placeholder="Color">
+                    <input type="date" name="purchase_date">
+                    <textarea name="notes" placeholder="Notes"></textarea>
+                    <button type="submit">Add Keycap</button>
+                </form>
+                <div class="table-container">
+                    <table id="collection-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Vendor</th>
+                                <th>Artisan</th>
+                                <th>Pokémon</th>
+                                <th>Color</th>
+                                <th>Purchase Date</th>
+                                <th>Notes</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Drops Section -->
+            <section id="drops" class="tab-content">
+                <h2>S-Craft Drops</h2>
+                <div class="button-group">
+                    <button id="scrape-btn">Scrape Latest Drops</button>
+                    <button id="compare-btn">Compare with Collection</button>
+                </div>
+                <div class="table-container">
+                    <table id="drops-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Image</th>
+                                <th>Pokémon</th>
+                                <th>Color</th>
+                                <th>Batch</th>
+                                <th>Price</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+</body>
+</html>
