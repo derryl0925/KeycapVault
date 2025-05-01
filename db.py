@@ -24,21 +24,40 @@ def init_db(uri: str = None) -> bool:
             uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017')
         
         logger.info(f"Connecting to MongoDB at {uri}")
-        client = MongoClient(uri, serverSelectionTimeoutMS=5000)  # 5 second timeout
+        client = MongoClient(
+            uri,
+            serverSelectionTimeoutMS=5000,  # 5 second timeout
+            connectTimeoutMS=5000,
+            socketTimeoutMS=5000,
+            maxPoolSize=1,
+            retryWrites=True
+        )
         
         # Test the connection
         client.admin.command('ping')
         logger.info("Successfully connected to MongoDB")
         
+        # Get or create database
         db = client.keycapvault
+        
+        # Ensure collections exist
+        collections = db.list_collection_names()
+        if 'keycaps' not in collections:
+            logger.info("Creating keycaps collection")
+            db.create_collection('keycaps')
+        if 'scrapes' not in collections:
+            logger.info("Creating scrapes collection")
+            db.create_collection('scrapes')
+        
         keycaps_collection = db.keycaps
-        scrapes_collection = db.scrapes  # Initialize scrapes collection
+        scrapes_collection = db.scrapes
         
         # Ensure indexes
         keycaps_collection.create_index("vendor")
         keycaps_collection.create_index("name")
         scrapes_collection.create_index([("scraped_at", -1)])  # Index for latest scrape
         
+        logger.info("Database initialization complete")
         return True
     except Exception as e:
         logger.error(f"Failed to initialize MongoDB connection: {str(e)}")
@@ -67,6 +86,8 @@ def store_scrape_results(products: List[Dict]) -> bool:
         raise ConnectionError("Database connection failed")
     
     try:
+        logger.info(f"Attempting to store {len(products)} products")
+        
         # Create a scrape record with timestamp and products
         scrape_data = {
             "scraped_at": datetime.utcnow(),
@@ -74,9 +95,17 @@ def store_scrape_results(products: List[Dict]) -> bool:
         }
         
         # Store the scrape results
-        scrapes_collection.insert_one(scrape_data)
-        logger.info(f"Stored scrape results with {len(products)} products")
-        return True
+        result = scrapes_collection.insert_one(scrape_data)
+        logger.info(f"Successfully stored scrape results with ID: {result.inserted_id}")
+        
+        # Verify the data was stored
+        stored_count = scrapes_collection.count_documents({"_id": result.inserted_id})
+        if stored_count == 1:
+            logger.info("Verified data was stored successfully")
+            return True
+        else:
+            logger.error("Failed to verify data storage")
+            return False
     except Exception as e:
         logger.error(f"Error storing scrape results: {str(e)}")
         raise
