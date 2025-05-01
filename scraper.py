@@ -33,100 +33,120 @@ def scrape_s_craft() -> List[Dict]:
         "Connection": "keep-alive",
     }
     
-    # Batch IDs mapping (batch number to ID)
-    batch_ids = {
-        1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9,
-        10: 14, 11: 18, 12: 21
+    # Batch IDs mapping (batch number to ID and pages)
+    batch_config = {
+        1: {"id": 1, "pages": 1},
+        2: {"id": 2, "pages": 1},
+        3: {"id": 3, "pages": 1},
+        4: {"id": 4, "pages": 1},
+        5: {"id": 5, "pages": 1},
+        6: {"id": 6, "pages": 1},
+        7: {"id": 7, "pages": 1},
+        8: {"id": 8, "pages": 1},
+        9: {"id": 9, "pages": 1},
+        10: {"id": 14, "pages": 1},
+        11: {"id": 18, "pages": 2},
+        12: {"id": 21, "pages": 2}
     }
     
     all_products = []
-    seen_products = set()  # Track unique products by name
+    seen_products = set()  # Track unique products by name and batch
     
     try:
         # Scrape each batch
-        for batch_num, batch_id in batch_ids.items():
-            url = f"{base_url}?batch_id={batch_id}"
-            logger.info(f"Scraping batch {batch_num} (ID: {batch_id}) from {url}")
+        for batch_num, config in batch_config.items():
+            batch_id = config["id"]
+            pages = config["pages"]
             
-            try:
-                response = requests.get(url, headers=headers, timeout=10)
-                response.raise_for_status()
-                soup = BeautifulSoup(response.text, 'html.parser')
+            for page in range(1, pages + 1):
+                url = f"{base_url}?batch_id={batch_id}"
+                if page > 1:
+                    url += f"&page={page}"
                 
-                # Find product cards
-                product_cards = soup.select('div.product-item, div.product-card, div.product')
-                if not product_cards:
-                    logger.warning(f"No products found in batch {batch_num} with primary selectors. Trying alternative selectors...")
-                    product_cards = soup.select('div[class*="product"], div[class*="item"]')
+                logger.info(f"Scraping batch {batch_num} (ID: {batch_id}), page {page} from {url}")
                 
-                logger.info(f"Found {len(product_cards)} products in batch {batch_num}")
-                
-                for card in product_cards:
-                    try:
-                        # Get product name
-                        name_elem = card.select_one('h2, h3, .product-name, .title, [class*="name"]')
-                        name = name_elem.text.strip() if name_elem else "Unknown Product"
-                        
-                        # Skip if we've already seen this product
-                        if name in seen_products:
-                            continue
-                        seen_products.add(name)
-                        
-                        # Get image URL with fallbacks for later batches
-                        image_url = None
-                        if batch_num >= 9:
-                            # Try multiple image selectors for later batches
-                            for selector in [
-                                'img.product-image',
-                                'img.main-image',
-                                'img[class*="product"]',
-                                'img[class*="main"]',
-                                'img'
-                            ]:
-                                img_elem = card.select_one(selector)
+                try:
+                    response = requests.get(url, headers=headers, timeout=10)
+                    response.raise_for_status()
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    
+                    # Find product cards
+                    product_cards = soup.select('div.product-item, div.product-card, div.product')
+                    if not product_cards:
+                        logger.warning(f"No products found in batch {batch_num} with primary selectors. Trying alternative selectors...")
+                        product_cards = soup.select('div[class*="product"], div[class*="item"]')
+                    
+                    logger.info(f"Found {len(product_cards)} products in batch {batch_num}, page {page}")
+                    
+                    for card in product_cards:
+                        try:
+                            # Get product name
+                            name_elem = card.select_one('h2, h3, .product-name, .title, [class*="name"]')
+                            name = name_elem.text.strip() if name_elem else "Unknown Product"
+                            
+                            # Create unique identifier for product (name + batch)
+                            product_id = f"{name}_{batch_num}"
+                            
+                            # Skip if we've already seen this product in this batch
+                            if product_id in seen_products:
+                                continue
+                            seen_products.add(product_id)
+                            
+                            # Get image URL with fallbacks for later batches
+                            image_url = None
+                            if batch_num >= 9:
+                                # Try multiple image selectors for later batches
+                                for selector in [
+                                    'img.product-image',
+                                    'img.main-image',
+                                    'img[class*="product"]',
+                                    'img[class*="main"]',
+                                    'img'
+                                ]:
+                                    img_elem = card.select_one(selector)
+                                    if img_elem and 'src' in img_elem.attrs:
+                                        image_url = clean_image_url(img_elem['src'], base_url)
+                                        if image_url and not image_url.endswith(('gif', 'svg')):  # Skip loading/placeholder images
+                                            break
+                            else:
+                                # Original image handling for earlier batches
+                                img_elem = card.select_one('img')
                                 if img_elem and 'src' in img_elem.attrs:
                                     image_url = clean_image_url(img_elem['src'], base_url)
-                                    if image_url and not image_url.endswith(('gif', 'svg')):  # Skip loading/placeholder images
-                                        break
-                        else:
-                            # Original image handling for earlier batches
-                            img_elem = card.select_one('img')
-                            if img_elem and 'src' in img_elem.attrs:
-                                image_url = clean_image_url(img_elem['src'], base_url)
-                        
-                        # Get price
-                        price_elem = card.select_one('.price, [class*="price"], span[class*="amount"]')
-                        price = price_elem.text.strip() if price_elem else "Price not available"
-                        
-                        # Extract Pokémon name and color
-                        pokemon = name.split(' - ')[0] if ' - ' in name else name
-                        color = name.split(' - ')[1].strip() if ' - ' in name else None
-                        
-                        product = {
-                            "name": name,
-                            "image_url": image_url,
-                            "product_url": url,
-                            "price": price,
-                            "batch": batch_num,
-                            "pokemon": pokemon,
-                            "color": color,
-                            "vendor": "s-craft",
-                            "scraped_at": datetime.utcnow().isoformat()
-                        }
-                        
-                        logger.debug(f"Extracted product: {product}")
-                        all_products.append(product)
-                        
-                    except Exception as e:
-                        logger.error(f"Error parsing product card in batch {batch_num}: {str(e)}")
-                        continue
-                
-            except requests.RequestException as e:
-                logger.error(f"Error fetching batch {batch_num}: {str(e)}")
-                continue
-            except Exception as e:
-                logger.error(f"Unexpected error processing batch {batch_num}: {str(e)}")
-                continue
+                            
+                            # Get price
+                            price_elem = card.select_one('.price, [class*="price"], span[class*="amount"]')
+                            price = price_elem.text.strip() if price_elem else "Price not available"
+                            
+                            # Extract Pokémon name and color
+                            pokemon = name.split(' - ')[0] if ' - ' in name else name
+                            color = name.split(' - ')[1].strip() if ' - ' in name else None
+                            
+                            product = {
+                                "name": name,
+                                "image_url": image_url,
+                                "product_url": url,
+                                "price": price,
+                                "batch": batch_num,
+                                "pokemon": pokemon,
+                                "color": color,
+                                "vendor": "s-craft",
+                                "scraped_at": datetime.utcnow().isoformat()
+                            }
+                            
+                            logger.debug(f"Extracted product: {product}")
+                            all_products.append(product)
+                            
+                        except Exception as e:
+                            logger.error(f"Error parsing product card in batch {batch_num}, page {page}: {str(e)}")
+                            continue
+                    
+                except requests.RequestException as e:
+                    logger.error(f"Error fetching batch {batch_num}, page {page}: {str(e)}")
+                    continue
+                except Exception as e:
+                    logger.error(f"Unexpected error processing batch {batch_num}, page {page}: {str(e)}")
+                    continue
         
         logger.info(f"Successfully scraped {len(all_products)} unique products across all batches")
         return all_products
