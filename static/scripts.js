@@ -142,7 +142,7 @@ function renderDrops(drops) {
     dropsTable.innerHTML = '';
     if (!drops || drops.length === 0) {
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="7" class="no-data">No drops available</td>';
+        row.innerHTML = '<td colspan="4" class="no-data">No drops available</td>';
         dropsTable.appendChild(row);
         return;
     }
@@ -152,11 +152,8 @@ function renderDrops(drops) {
         row.innerHTML = `
             <td>${drop.name}</td>
             <td>${drop.image_url ? `<img src="${drop.image_url}" alt="${drop.name}" loading="lazy">` : 'No image'}</td>
-            <td>${drop.pokemon || ''}</td>
-            <td>${drop.color || ''}</td>
             <td>Batch ${drop.batch}</td>
             <td>${drop.price}</td>
-            <td>Available</td>
         `;
         dropsTable.appendChild(row);
     });
@@ -204,10 +201,8 @@ compareBtn.addEventListener('click', async () => {
             
             if (!collectionNames.has(name)) {
                 row.classList.add('missing');
-                row.querySelector('td:last-child').textContent = 'Not in Collection';
             } else {
                 row.classList.remove('missing');
-                row.querySelector('td:last-child').textContent = 'In Collection';
             }
         });
     } catch (error) {

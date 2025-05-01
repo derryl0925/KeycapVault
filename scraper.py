@@ -132,18 +132,12 @@ def scrape_s_craft() -> List[Dict]:
                                 
                             price = price_elem.text.strip()
                             
-                            # Extract Pokémon name and color
-                            pokemon = name.split(' - ')[0] if ' - ' in name else name
-                            color = name.split(' - ')[1].strip() if ' - ' in name else None
-                            
                             product = {
                                 "name": name,
                                 "image_url": image_url,
                                 "product_url": url,
                                 "price": price,
                                 "batch": batch_num,
-                                "pokemon": pokemon,
-                                "color": color,
                                 "vendor": "s-craft",
                                 "scraped_at": datetime.utcnow().isoformat()
                             }
