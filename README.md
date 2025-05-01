@@ -82,3 +82,32 @@ The application will be available at http://127.0.0.1:5001
 - `DELETE /api/keycaps/<id>` - Delete a keycap
 - `GET /api/drops` - Get latest S-Craft drops
 - `GET /api/drops?force=true` - Force a new scrape
+
+## Manual Database Inspection
+
+To manually inspect the MongoDB database, you can use the `mongosh` command-line tool. Here are some useful commands:
+
+1. Connect to the database:
+```bash
+mongosh keycapvault
+```
+
+2. View all keycaps:
+```bash
+mongosh keycapvault --eval "db.keycaps.find().pretty()"
+```
+
+3. View keycaps by vendor:
+```bash
+mongosh keycapvault --eval "db.keycaps.find({vendor: 'S-Craft'}).pretty()"
+```
+
+4. Count total keycaps:
+```bash
+mongosh keycapvault --eval "db.keycaps.countDocuments()"
+```
+
+5. View latest scrape results:
+```bash
+mongosh keycapvault --eval "db.scrapes.find().sort({scraped_at: -1}).limit(1).pretty()"
+```

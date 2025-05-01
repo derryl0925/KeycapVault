@@ -18,12 +18,26 @@ const addKeycapForm = document.getElementById('add-keycap-form');
 // Load collection
 async function loadCollection() {
     try {
+        // Try both vendor name cases
         const response = await fetch('/api/keycaps?vendor=s-craft');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const keycaps = await response.json();
-        renderCollection(keycaps);
+        console.log('Loaded keycaps:', keycaps);  // Debug log
+        
+        // If no results with lowercase, try uppercase
+        if (keycaps.length === 0) {
+            const response2 = await fetch('/api/keycaps?vendor=S-Craft');
+            if (!response2.ok) {
+                throw new Error(`HTTP error! status: ${response2.status}`);
+            }
+            const keycaps2 = await response2.json();
+            console.log('Loaded keycaps (uppercase):', keycaps2);  // Debug log
+            renderCollection(keycaps2);
+        } else {
+            renderCollection(keycaps);
+        }
     } catch (error) {
         console.error('Error loading collection:', error);
         showError('Failed to load collection. Please try again later.');
@@ -32,23 +46,22 @@ async function loadCollection() {
 
 // Render collection
 function renderCollection(keycaps) {
+    console.log('Rendering keycaps:', keycaps);  // Debug log
     collectionTable.innerHTML = '';
     if (!keycaps || keycaps.length === 0) {
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="8" class="no-data">No keycaps in collection</td>';
+        row.innerHTML = '<td colspan="5" class="no-data">No keycaps in collection</td>';
         collectionTable.appendChild(row);
         return;
     }
     
     keycaps.forEach(keycap => {
+        console.log('Rendering keycap:', keycap);  // Debug log
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${keycap.name}</td>
             <td>${keycap.vendor}</td>
             <td>${keycap.artisan || ''}</td>
-            <td>${keycap.pokemon || ''}</td>
-            <td>${keycap.color || ''}</td>
-            <td>${keycap.purchase_date || ''}</td>
             <td>${keycap.notes || ''}</td>
             <td class="actions">
                 <button onclick="editKeycap('${keycap._id}')">Edit</button>
@@ -65,6 +78,13 @@ addKeycapForm.addEventListener('submit', async (e) => {
     const formData = new FormData(addKeycapForm);
     const data = Object.fromEntries(formData.entries());
     
+    // Ensure consistent vendor name
+    if (!data.vendor) {
+        data.vendor = 'S-Craft';  // Changed to uppercase to match existing data
+    } else {
+        data.vendor = 'S-Craft';  // Always use uppercase for consistency
+    }
+    
     try {
         const response = await fetch('/api/keycaps', {
             method: 'POST',
@@ -80,7 +100,7 @@ addKeycapForm.addEventListener('submit', async (e) => {
         }
         
         addKeycapForm.reset();
-        loadCollection();
+        await loadCollection();  // Wait for collection to reload
     } catch (error) {
         console.error('Error adding keycap:', error);
         showError(error.message);

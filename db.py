@@ -39,9 +39,12 @@ def init_db(uri: str = None) -> bool:
         
         # Get or create database
         db = client.keycapvault
+        logger.info(f"Using database: {db.name}")
         
         # Ensure collections exist
         collections = db.list_collection_names()
+        logger.info(f"Existing collections: {collections}")
+        
         if 'keycaps' not in collections:
             logger.info("Creating keycaps collection")
             db.create_collection('keycaps')
@@ -150,7 +153,10 @@ def get_keycaps(vendor: Optional[str] = None) -> List[Dict]:
     
     try:
         query = {"vendor": vendor} if vendor else {}
-        return list(keycaps_collection.find(query))
+        logger.info(f"Querying keycaps with filter: {query}")
+        keycaps = list(keycaps_collection.find(query))
+        logger.info(f"Found {len(keycaps)} keycaps")
+        return keycaps
     except Exception as e:
         logger.error(f"Error getting keycaps: {str(e)}")
         raise
