@@ -83,6 +83,51 @@ The application will be available at http://127.0.0.1:5001
 - `GET /api/drops` - Get latest S-Craft drops
 - `GET /api/drops?force=true` - Force a new scrape
 
+## Technical Issues and Fixes
+
+### 1. Duplicate Items in Scraping
+**Issue**: The scraper was creating duplicate entries for the same product across different pages of the same batch.
+**Root Cause**: The deduplication logic was only checking for exact name matches, but some products appeared multiple times with slight variations in their names or formatting.
+**Solution**: 
+- Implemented a more robust deduplication system using a combination of product name and batch number
+- Added a `seen_products` set to track unique products using a composite key: `f"{name}_{batch_num}"`
+- Improved name normalization to handle variations in product names
+
+### 2. Missing Items in Scraping
+**Issue**: Some items from batches 9-12 were not being scraped correctly.
+**Root Cause**: 
+- The website's HTML structure changed for later batches
+- Image URLs were using different selectors and formats
+- Some products were in different page layouts
+**Solution**:
+- Added multiple fallback selectors for product cards and images
+- Implemented a more flexible image URL cleaning function
+- Added batch-specific handling for different HTML structures
+- Improved error handling and logging for failed scrapes
+
+### 3. Database Connection Issues
+**Issue**: Keycaps were being added to the database but not showing up in the frontend.
+**Root Cause**: 
+- Inconsistent vendor name casing ("S-Craft" vs "s-craft")
+- Frontend was not properly handling the database response
+- Missing error handling in the frontend code
+**Solution**:
+- Standardized vendor name to "S-Craft" across the application
+- Added comprehensive error handling and logging
+- Implemented proper async/await patterns in the frontend
+- Added debug logging to track data flow
+
+### 4. Image URL Issues
+**Issue**: Some product images were not loading correctly.
+**Root Cause**: 
+- Relative URLs were not being properly converted to absolute URLs
+- Some image URLs contained query parameters or were malformed
+**Solution**:
+- Implemented a robust URL cleaning function
+- Added proper URL joining with the base URL
+- Added validation for image URLs
+- Implemented fallback image handling
+
 ## Manual Database Inspection
 
 To manually inspect the MongoDB database, you can use the `mongosh` command-line tool. Here are some useful commands:
