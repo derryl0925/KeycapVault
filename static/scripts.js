@@ -18,26 +18,23 @@ const addKeycapForm = document.getElementById('add-keycap-form');
 // Load collection
 async function loadCollection() {
     try {
-        // Try both vendor name cases
-        const response = await fetch('/api/keycaps?vendor=s-craft');
+        console.log('Starting to load collection...');
+        const response = await fetch('/api/keycaps?vendor=S-Craft');
+        console.log('API Response status:', response.status);
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const keycaps = await response.json();
-        console.log('Loaded keycaps:', keycaps);  // Debug log
         
-        // If no results with lowercase, try uppercase
-        if (keycaps.length === 0) {
-            const response2 = await fetch('/api/keycaps?vendor=S-Craft');
-            if (!response2.ok) {
-                throw new Error(`HTTP error! status: ${response2.status}`);
-            }
-            const keycaps2 = await response2.json();
-            console.log('Loaded keycaps (uppercase):', keycaps2);  // Debug log
-            renderCollection(keycaps2);
-        } else {
-            renderCollection(keycaps);
+        const keycaps = await response.json();
+        console.log('Received keycaps data:', keycaps);
+        
+        if (!Array.isArray(keycaps)) {
+            console.error('Received data is not an array:', keycaps);
+            throw new Error('Invalid data format received from server');
         }
+        
+        renderCollection(keycaps);
     } catch (error) {
         console.error('Error loading collection:', error);
         showError('Failed to load collection. Please try again later.');
@@ -46,22 +43,25 @@ async function loadCollection() {
 
 // Render collection
 function renderCollection(keycaps) {
-    console.log('Rendering keycaps:', keycaps);  // Debug log
+    console.log('Starting to render collection...');
+    console.log('Keycaps to render:', keycaps);
+    
     collectionTable.innerHTML = '';
     if (!keycaps || keycaps.length === 0) {
+        console.log('No keycaps to render, showing empty message');
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="5" class="no-data">No keycaps in collection</td>';
+        row.innerHTML = '<td colspan="4" class="no-data">No keycaps in collection</td>';
         collectionTable.appendChild(row);
         return;
     }
     
-    keycaps.forEach(keycap => {
-        console.log('Rendering keycap:', keycap);  // Debug log
+    console.log(`Rendering ${keycaps.length} keycaps`);
+    keycaps.forEach((keycap, index) => {
+        console.log(`Rendering keycap ${index + 1}:`, keycap);
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${keycap.name}</td>
-            <td>${keycap.vendor}</td>
-            <td>${keycap.artisan || ''}</td>
+            <td>${keycap.name || ''}</td>
+            <td>${keycap.vendor || ''}</td>
             <td>${keycap.notes || ''}</td>
             <td class="actions">
                 <button onclick="editKeycap('${keycap._id}')">Edit</button>
@@ -75,15 +75,16 @@ function renderCollection(keycaps) {
 // Add keycap
 addKeycapForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    console.log('Form submitted');
+    
     const formData = new FormData(addKeycapForm);
     const data = Object.fromEntries(formData.entries());
+    console.log('Form data:', data);
     
     // Ensure consistent vendor name
-    if (!data.vendor) {
-        data.vendor = 'S-Craft';  // Changed to uppercase to match existing data
-    } else {
-        data.vendor = 'S-Craft';  // Always use uppercase for consistency
-    }
+    data.vendor = 'S-Craft';
+    
+    console.log('Data to be sent:', data);
     
     try {
         const response = await fetch('/api/keycaps', {
@@ -94,13 +95,18 @@ addKeycapForm.addEventListener('submit', async (e) => {
             body: JSON.stringify(data),
         });
         
+        console.log('Add keycap response status:', response.status);
+        
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Failed to add keycap');
         }
         
+        const result = await response.json();
+        console.log('Add keycap result:', result);
+        
         addKeycapForm.reset();
-        await loadCollection();  // Wait for collection to reload
+        await loadCollection();
     } catch (error) {
         console.error('Error adding keycap:', error);
         showError(error.message);
@@ -238,6 +244,15 @@ function showError(message) {
 }
 
 // Initial load
-loadCollection();
+console.log('Page loaded, initializing...');
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM fully loaded');
+    // Switch to collection tab and load data
+    const collectionTab = document.querySelector('[data-tab="collection"]');
+    if (collectionTab) {
+        collectionTab.click();
+        loadCollection();
+    }
+});
 // Don't automatically load drops on page load
 // Instead, wait for user to click the Scrape button

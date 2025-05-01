@@ -28,14 +28,28 @@ def handle_keycaps():
     try:
         if request.method == 'GET':
             vendor = request.args.get('vendor')
+            logger.info(f"GET request for keycaps with vendor: {vendor}")
             keycaps = get_keycaps(vendor)
+            logger.info(f"Found {len(keycaps)} keycaps")
+            # Convert ObjectId to string for JSON serialization
+            for keycap in keycaps:
+                keycap['_id'] = str(keycap['_id'])
             return jsonify(keycaps)
         
         elif request.method == 'POST':
             data = request.json
+            logger.info(f"POST request with data: {data}")
             if not data:
+                logger.error("No data provided in POST request")
                 return jsonify({"error": "No data provided"}), 400
+            
+            # Ensure required fields
+            if not data.get('name') or not data.get('vendor'):
+                logger.error("Missing required fields")
+                return jsonify({"error": "Name and vendor are required"}), 400
+            
             keycap_id = add_keycap(data)
+            logger.info(f"Added keycap with ID: {keycap_id}")
             return jsonify({"id": keycap_id}), 201
             
     except Exception as e:
