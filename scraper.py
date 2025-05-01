@@ -80,15 +80,25 @@ def scrape_s_craft() -> List[Dict]:
                     
                     for card in product_cards:
                         try:
-                            # Get product name
+                            # Get product name with improved validation
                             name_elem = card.select_one('h2, h3, .product-name, .title, [class*="name"]')
-                            name = name_elem.text.strip() if name_elem else "Unknown Product"
+                            if not name_elem or not name_elem.text.strip():
+                                logger.warning(f"Skipping product with missing name in batch {batch_num}, page {page}")
+                                continue
+                                
+                            name = name_elem.text.strip()
+                            
+                            # Skip if name is just whitespace or "Unknown Product"
+                            if not name or name == "Unknown Product":
+                                logger.warning(f"Skipping invalid product name in batch {batch_num}, page {page}")
+                                continue
                             
                             # Create unique identifier for product (name + batch)
                             product_id = f"{name}_{batch_num}"
                             
                             # Skip if we've already seen this product in this batch
                             if product_id in seen_products:
+                                logger.debug(f"Skipping duplicate product: {name} in batch {batch_num}")
                                 continue
                             seen_products.add(product_id)
                             
@@ -114,9 +124,13 @@ def scrape_s_craft() -> List[Dict]:
                                 if img_elem and 'src' in img_elem.attrs:
                                     image_url = clean_image_url(img_elem['src'], base_url)
                             
-                            # Get price
+                            # Get price with validation
                             price_elem = card.select_one('.price, [class*="price"], span[class*="amount"]')
-                            price = price_elem.text.strip() if price_elem else "Price not available"
+                            if not price_elem or not price_elem.text.strip():
+                                logger.warning(f"Missing price for product {name} in batch {batch_num}")
+                                continue
+                                
+                            price = price_elem.text.strip()
                             
                             # Extract Pokémon name and color
                             pokemon = name.split(' - ')[0] if ' - ' in name else name
