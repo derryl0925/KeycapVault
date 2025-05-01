@@ -128,6 +128,22 @@ The application will be available at http://127.0.0.1:5001
 - Added validation for image URLs
 - Implemented fallback image handling
 
+### 5. Collection Display Issues
+**Issue**: Keycap entries were not displaying in the frontend despite being stored in the database.
+**Root Cause**: 
+- MongoDB ObjectId was not being properly serialized to JSON
+- Frontend was not automatically switching to the collection tab on page load
+- Inconsistent vendor name handling between frontend and backend
+- Missing proper error handling for required fields
+**Solution**:
+- Added ObjectId to string conversion in the backend API response
+- Implemented automatic tab switching to collection tab on page load
+- Standardized vendor name to 'S-Craft' across the application
+- Added validation for required fields (name and vendor)
+- Simplified the collection form and table structure
+- Added comprehensive error handling and logging
+- Fixed the colspan in the "no data" message to match the simplified table structure
+
 ## Manual Database Inspection
 
 To manually inspect the MongoDB database, you can use the `mongosh` command-line tool. Here are some useful commands:
