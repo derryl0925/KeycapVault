@@ -1,7 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 from db import (
     init_db, add_keycap, get_keycaps, update_keycap, delete_keycap,
-    store_scrape_results, get_latest_scrape
+    store_scrape_results, get_latest_scrape, compare_with_collection
 )
 from scraper import scrape_s_craft
 import os
@@ -73,6 +73,16 @@ def handle_keycap(keycap_id):
             
     except Exception as e:
         logger.error(f"Error in handle_keycap: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/compare')
+def compare_items():
+    """Compare scraped items with collection."""
+    try:
+        comparison_results = compare_with_collection()
+        return jsonify(comparison_results)
+    except Exception as e:
+        logger.error(f"Error in compare_items: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/drops')

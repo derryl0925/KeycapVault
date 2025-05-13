@@ -91,10 +91,18 @@ def store_scrape_results(products: List[Dict]) -> bool:
     try:
         logger.info(f"Attempting to store {len(products)} products")
         
+        # Extract only essential data for comparison
+        simplified_products = [{
+            "name": product["name"],
+            "batch": product["batch"],
+            "price": product["price"],
+            "image_url": product["image_url"]
+        } for product in products]
+        
         # Create a scrape record with timestamp and products
         scrape_data = {
             "scraped_at": datetime.utcnow(),
-            "products": products
+            "products": simplified_products
         }
         
         # Store the scrape results
@@ -111,6 +119,56 @@ def store_scrape_results(products: List[Dict]) -> bool:
             return False
     except Exception as e:
         logger.error(f"Error storing scrape results: {str(e)}")
+        raise
+
+def compare_with_collection() -> Dict[str, List[Dict]]:
+    """Compare scraped items with collection and return matches/missing items."""
+    if not ensure_connection():
+        raise ConnectionError("Database connection failed")
+    
+    try:
+        # Get latest scrape results
+        latest_scrape = scrapes_collection.find_one(sort=[("scraped_at", -1)])
+        logger.info(f"Latest scrape found: {latest_scrape is not None}")
+        
+        if not latest_scrape:
+            logger.info("No scrape results found")
+            return {"matches": [], "missing": []}
+        
+        # Get collection items
+        collection_items = list(keycaps_collection.find({}, {"name": 1}))
+        logger.info(f"Found {len(collection_items)} items in collection")
+        logger.info(f"Collection items: {collection_items}")
+        
+        collection_names = {item["name"].lower() for item in collection_items}
+        logger.info(f"Collection names (lowercase): {collection_names}")
+        
+        # Compare items
+        matches = []
+        missing = []
+        
+        for product in latest_scrape["products"]:
+            product_name = product["name"].lower()
+            logger.info(f"Comparing product: {product_name}")
+            
+            if product_name in collection_names:
+                logger.info(f"Match found for: {product_name}")
+                matches.append(product)
+            else:
+                logger.info(f"No match found for: {product_name}")
+                missing.append(product)
+        
+        logger.info(f"Found {len(matches)} matches and {len(missing)} missing items")
+        logger.info(f"Matches: {matches}")
+        logger.info(f"Missing: {missing}")
+        
+        return {
+            "matches": matches,
+            "missing": missing
+        }
+    except Exception as e:
+        logger.error(f"Error comparing items: {str(e)}")
+        logger.exception("Full traceback:")
         raise
 
 def get_latest_scrape() -> List[Dict]:

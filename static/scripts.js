@@ -204,33 +204,63 @@ scrapeBtn.addEventListener('click', async () => {
 
 // Compare drops with collection
 compareBtn.addEventListener('click', async () => {
+    console.log('Compare button clicked');
+    console.log('Current drops:', currentDrops);
+    
     if (!currentDrops || currentDrops.length === 0) {
+        console.log('No drops data available');
         showError('No drops data available. Please scrape drops first.');
         return;
     }
     
     try {
-        const response = await fetch('/api/keycaps?vendor=s-craft');
+        console.log('Fetching comparison data...');
+        const response = await fetch('/api/compare');
+        console.log('Comparison response status:', response.status);
+        
         if (!response.ok) {
-            throw new Error('Failed to fetch collection data');
+            const errorText = await response.text();
+            console.error('Comparison response error:', errorText);
+            throw new Error('Failed to fetch comparison data');
         }
         
-        const collection = await response.json();
+        const comparison = await response.json();
+        console.log('Comparison results:', comparison);
         
-        // Get collection names for comparison
-        const collectionNames = new Set(collection.map(item => item.name));
+        if (!comparison.matches || !comparison.missing) {
+            console.error('Invalid comparison data structure:', comparison);
+            throw new Error('Invalid comparison data received');
+        }
         
-        // Update drops table with comparison
-        dropsTable.querySelectorAll('tr').forEach(row => {
+        // Update drops table with comparison results
+        const rows = dropsTable.querySelectorAll('tr');
+        console.log(`Updating ${rows.length} rows in drops table`);
+        
+        rows.forEach((row, index) => {
             const nameCell = row.querySelector('td:first-child');
-            const name = nameCell.textContent;
+            if (!nameCell) {
+                console.warn(`No name cell found in row ${index}`);
+                return;
+            }
             
-            if (!collectionNames.has(name)) {
+            const name = nameCell.textContent.toLowerCase();
+            console.log(`Checking row ${index} with name: ${name}`);
+            
+            // Check if this item is in the missing list
+            const isMissing = comparison.missing.some(item => 
+                item.name.toLowerCase() === name
+            );
+            
+            console.log(`Row ${index} is ${isMissing ? 'missing' : 'found'}`);
+            
+            if (isMissing) {
                 row.classList.add('missing');
             } else {
                 row.classList.remove('missing');
             }
         });
+        
+        console.log('Comparison update complete');
     } catch (error) {
         console.error('Error comparing drops:', error);
         showError('Failed to compare drops with collection. Please try again later.');
